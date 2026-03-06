@@ -256,15 +256,29 @@ namespace mapocr
                             if (bits.Count() == 8)
                             {
                                 textBox1.Text = AAA;
-                                textBox6.Text = nameRegion(bits[0], bits[4], int.Parse(bits[1]), int.Parse(bits[5]));
+                                try
+                                {
+                                    textBox6.Text = nameRegion(bits[0], bits[4], int.Parse(bits[1]), int.Parse(bits[5]));
+                                }
+                                catch
+                                {
+
+                                }
                                 pictureBox2.BackgroundImage = work;
 
                                 Bitmap drawmap = World.Clone(new Rectangle(0, 0, World.Width, World.Height), baseImage.PixelFormat);
                                 currentMapRead = AAA;
-                                drawmap = drawMapPoint(drawmap, bits[0], bits[4],
-                                    int.Parse(bits[1]), int.Parse(bits[2]), int.Parse(bits[3]),
-                                    int.Parse(bits[5]), int.Parse(bits[6]), int.Parse(bits[7])
-                                    );
+                                try
+                                {
+                                    drawmap = drawMapPoint(drawmap, bits[0], bits[4],
+                                        int.Parse(bits[1]), int.Parse(bits[2]), int.Parse(bits[3]),
+                                        int.Parse(bits[5]), int.Parse(bits[6]), int.Parse(bits[7])
+                                        );
+                                }
+                                catch
+                                {
+
+                                }
                                 pictureBox4.BackgroundImage = drawmap;
                                 break;
                             }
