@@ -3,8 +3,7 @@ using Emgu.CV.CvEnum;
 using Emgu.CV.Reg;
 using Emgu.CV.Structure;
 using Emgu.CV.XPhoto;
-using IronOcr;
-using SixLabors.ImageSharp.Drawing.Processing;
+using Tesseract;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -12,7 +11,6 @@ using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.JavaScript;
 using System.Windows.Forms;
-using static IronOcr.OcrResult;
 using System.Text.Json;
 using Brush = System.Drawing.Brush;
 using Color = System.Drawing.Color;
@@ -36,8 +34,15 @@ namespace mapocr
         Dictionary<string, List<int>> west_south_regions = new Dictionary<string, List<int>>();
         Bitmap World;
 
-        List<Map> maps = new List<Map>();
-        List<string> maphash = new List<string>();
+        // Status indicator panel
+        private Panel? statusIndicator = null;
+        private Label? statusLabel = null;
+
+        // Auto-adjust tracking
+        private System.Windows.Forms.Timer? autoAdjustTimer = null;
+        private DateTime lastDecodingStartTime = DateTime.Now;
+        private bool isCurrentlyDecoding = false;
+        private int autoAdjustCounter = 0;
 
         protected void createRegions()
         {
@@ -83,18 +88,26 @@ namespace mapocr
             InitializeComponent();
             createRegions();
 
+            // Setup tooltips for better UX
+            SetupTooltips();
+            
+            // Handle form closing to save settings
+            this.FormClosing += Form1_FormClosing;
+
+            // Setup auto-adjust timer
+            SetupAutoAdjustTimer();
+
             mapsource = global::mapocr.Properties.Resources.map;
             pictureBox2.BackgroundImage = mapsource;
             CurrentScreen = global::mapocr.Properties.Resources.test;
             pictureBox1.BackgroundImage = CurrentScreen;
             object_Image = mapsource.ToImage<Gray, Byte>();
-            ocr.Configuration.WhiteListCharacters = "0123456789'\"`°WENS ,";
+            InitializeOcr();
             World = global::mapocr.Properties.Resources.worldmap;
-            //World = drawMapPoint(World, "W", "S", 0, 0, 0, 0, 0, 0); 
-            // World = drawMapPoint(World, "W", "S", 0, 0, 0, 4, 0, 0);
-            // World = drawMapPoint(World, "W", "S", 2, 0, 0, 2, 0, 0);
-            //World = drawMapPoint(World, "E", "S", 2, 0, 0, 2, 0, 0);
             pictureBox4.BackgroundImage = World;
+            
+            // Load saved settings
+            LoadSettings();
         }
 
         protected string nameRegion(string Xstyle, string Ystyle, int X1, int Y1)
@@ -125,8 +138,23 @@ namespace mapocr
 
         private void button1_Click(object sender, EventArgs e)
         {
-            button1.Enabled = false;
-            comboBox1.Enabled = false;
+            // If this was previously used to select app, now also allow pause/resume
+            if (timer1.Enabled)
+            {
+                isPaused = !isPaused;
+                button1.Text = isPaused ? "Resume Scanning" : "Pause Scanning";
+                button1.BackColor = isPaused ? Color.LightGreen : Color.LightCoral;
+                
+                if (isPaused)
+                {
+                    UpdateStatusIndicator(Color.Orange, "Paused");
+                }
+            }
+            else
+            {
+                button1.Enabled = false;
+                comboBox1.Enabled = false;
+            }
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -142,6 +170,22 @@ namespace mapocr
                     loop++;
                 }
             }
+            
+            // Better feedback when no game found
+            if (comboBox1.Items.Count == 0)
+            {
+                MessageBox.Show(
+                    "No ArcheAge process detected!\n\n" +
+                    "Please start ArcheAge first, then restart this application.\n\n" +
+                    "Make sure the game process name contains 'archeage'.",
+                    "Game Not Found", 
+                    MessageBoxButtons.OK, 
+                    MessageBoxIcon.Warning);
+                button1.Enabled = false;
+                UpdateStatusIndicator(Color.DarkGray, "No game found");
+                return;
+            }
+            
             if (comboBox1.Items.Count == 1)
             {
                 comboBox1.SelectedIndex = 0;
@@ -150,7 +194,16 @@ namespace mapocr
                 comboBox1.Enabled = false;
                 updateNow();
             }
-
+            else
+            {
+                // Show selection hint
+                MessageBox.Show(
+                    "Multiple ArcheAge instances detected.\n\n" +
+                    "Please select which one to track from the dropdown.",
+                    "Select Game Instance",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
         }
 
         private void merge()
@@ -183,19 +236,154 @@ namespace mapocr
             updateNowSingle();
         }
 
-        private IronTesseract ocr = new IronTesseract();
+        private TesseractEngine? ocr = null;
+
+        private void InitializeOcr()
+        {
+            try
+            {
+                // Initialize Tesseract with English language data
+                string tessDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tessdata");
+                string trainedDataFile = Path.Combine(tessDataPath, "eng.traineddata");
+                
+                // Check if tessdata exists, if not, offer to download it
+                if (!File.Exists(trainedDataFile))
+                {
+                    var result = MessageBox.Show(
+                        $"Tesseract data not found at: {tessDataPath}\n\n" +
+                        "Would you like to download it automatically now?\n\n" +
+                        "(This is a one-time download of approximately 1MB)",
+                        "OCR Setup Required", 
+                        MessageBoxButtons.YesNo, 
+                        MessageBoxIcon.Question);
+                    
+                    if (result == DialogResult.Yes)
+                    {
+                        if (DownloadTessData(tessDataPath, trainedDataFile))
+                        {
+                            MessageBox.Show("Tesseract data downloaded successfully!", 
+                                "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                        else
+                        {
+                            MessageBox.Show("Failed to download Tesseract data.\n\n" +
+                                "Please manually download 'eng.traineddata' from:\n" +
+                                "https://github.com/tesseract-ocr/tessdata/raw/main/eng.traineddata\n\n" +
+                                $"And place it in: {tessDataPath}",
+                                "Download Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        return;
+                    }
+                }
+                
+                ocr = new TesseractEngine(tessDataPath, "eng", EngineMode.Default);
+                ocr.SetVariable("tessedit_char_whitelist", "0123456789'\"`°WENS ,");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to initialize OCR: {ex.Message}\n\n" +
+                                "Please ensure tessdata is properly installed.",
+                                "OCR Initialization Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private bool DownloadTessData(string tessDataPath, string trainedDataFile)
+        {
+            try
+            {
+                // Create tessdata directory if it doesn't exist
+                if (!Directory.Exists(tessDataPath))
+                {
+                    Directory.CreateDirectory(tessDataPath);
+                }
+
+                // Download the trained data file
+                string url = "https://github.com/tesseract-ocr/tessdata/raw/main/eng.traineddata";
+                
+                using (var client = new System.Net.WebClient())
+                {
+                    // Show a simple progress form
+                    var progressForm = new Form()
+                    {
+                        Text = "Downloading Tesseract Data",
+                        Width = 400,
+                        Height = 100,
+                        FormBorderStyle = FormBorderStyle.FixedDialog,
+                        StartPosition = FormStartPosition.CenterScreen,
+                        MaximizeBox = false,
+                        MinimizeBox = false
+                    };
+                    
+                    var label = new Label()
+                    {
+                        Text = "Downloading eng.traineddata...",
+                        AutoSize = true,
+                        Left = 20,
+                        Top = 20
+                    };
+                    progressForm.Controls.Add(label);
+                    
+                    client.DownloadProgressChanged += (s, e) =>
+                    {
+                        label.Text = $"Downloading: {e.ProgressPercentage}%";
+                    };
+                    
+                    var downloadTask = client.DownloadFileTaskAsync(url, trainedDataFile);
+                    progressForm.Show();
+                    
+                    while (!downloadTask.IsCompleted)
+                    {
+                        Application.DoEvents();
+                        System.Threading.Thread.Sleep(100);
+                    }
+                    
+                    progressForm.Close();
+                    
+                    if (downloadTask.Exception != null)
+                    {
+                        throw downloadTask.Exception;
+                    }
+                }
+
+                return File.Exists(trainedDataFile);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Download error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+        }
+
+        private bool isPaused = false;
+        
         private void timer1_Tick(object sender, EventArgs e)
         {
-            updateNowSingle();
-            findInImage();
+            if (!isPaused)
+            {
+                updateNowSingle();
+                findInImage();
+            }
         }
 
         private void findInImage()
         {
+            // Update status indicator - Looking for map
+            UpdateStatusIndicator(Color.Red, "Looking for map...");
+            StopAutoAdjust(); // Reset when not detecting
+            
             textBox1.Text = "-";
             Object_Location = new Point(0, 0);
             if (Detect_objects() == true)
             {
+                // Update status indicator - Decoding map
+                UpdateStatusIndicator(Color.Green, "Decoding map...");
+                
+                StartAutoAdjust(); // Start tracking for stuck detection
+                
                 X1 = Object_Location.X;
                 Y1 = Object_Location.Y - 29;
                 if (Y1 < 0)
@@ -237,49 +425,69 @@ namespace mapocr
                         }
                         textBox5.Text = textBox5.Text + S + " | ";
                     }
-                    using (var input = new OcrInput(work))
+                    
+                    if (ocr != null)
                     {
-                        input.Sharpen();
-                        input.EnhanceResolution();
-                        var ocrResult = ocr.Read(input);
-                        textBox2.Text = ocrResult.Text + " == " + ocrResult.Confidence.ToString();
-                        string[] bits = ocrResult.Text.Split(new char[] { '"', '\'', '`', '°', ',', '.', '°', ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                        // E@1@52@0@
-                        // S@21@2@2
-                        textBox6.Text = "? " + bits.Count().ToString() + " == " + String.Join(" ", bits);
-                        string AAA = String.Join(" ", bits);
-                        if (AAA != proA)
+                        try
                         {
-                            proA = AAA;
-                            if (bits.Count() == 8)
+                            using (var pix = BitmapToPix(work))
                             {
-                                textBox1.Text = AAA;
-                                try
+                                using (var page = ocr.Process(pix))
                                 {
-                                    textBox6.Text = nameRegion(bits[0], bits[4], int.Parse(bits[1]), int.Parse(bits[5]));
-                                }
-                                catch
-                                {
+                                    string ocrText = page.GetText();
+                                    float confidence = page.GetMeanConfidence();
+                                    textBox2.Text = ocrText + " == " + (confidence * 100).ToString("F2");
+                                    
+                                    string[] bits = ocrText.Split(new char[] { '"', '\'', '`', '°', ',', '.', '°', ' ', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+                                    // E@1@52@0@
+                                    // S@21@2@2
+                                    textBox6.Text = "? " + bits.Count().ToString() + " == " + String.Join(" ", bits);
+                                    string AAA = String.Join(" ", bits);
+                                    if (AAA != proA)
+                                    {
+                                        proA = AAA;
+                                        if (bits.Count() == 8)
+                                        {
+                                            textBox1.Text = AAA;
+                                            try
+                                            {
+                                                textBox6.Text = nameRegion(bits[0], bits[4], int.Parse(bits[1]), int.Parse(bits[5]));
+                                            }
+                                            catch
+                                            {
 
-                                }
-                                pictureBox2.BackgroundImage = work;
+                                            }
+                                            pictureBox2.BackgroundImage = work;
 
-                                Bitmap drawmap = World.Clone(new Rectangle(0, 0, World.Width, World.Height), baseImage.PixelFormat);
-                                currentMapRead = AAA;
-                                try
-                                {
-                                    drawmap = drawMapPoint(drawmap, bits[0], bits[4],
-                                        int.Parse(bits[1]), int.Parse(bits[2]), int.Parse(bits[3]),
-                                        int.Parse(bits[5]), int.Parse(bits[6]), int.Parse(bits[7])
-                                        );
-                                }
-                                catch
-                                {
+                                            Bitmap drawmap = World.Clone(new Rectangle(0, 0, World.Width, World.Height), baseImage.PixelFormat);
+                                            currentMapRead = AAA;
+                                            try
+                                            {
+                                                drawmap = drawMapPoint(drawmap, bits[0], bits[4],
+                                                    int.Parse(bits[1]), int.Parse(bits[2]), int.Parse(bits[3]),
+                                                    int.Parse(bits[5]), int.Parse(bits[6]), int.Parse(bits[7])
+                                                    );
+                                            }
+                                            catch
+                                            {
 
+                                            }
+                                            pictureBox4.BackgroundImage = drawmap;
+                                            
+                                            
+                                            // Update status indicator - Map confirmed
+                                            UpdateStatusIndicator(Color.Blue, "Map confirmed!");
+                                            StopAutoAdjust(); // Successfully decoded, stop auto-adjust
+                                            
+                                            break;
+                                        }
+                                    }
                                 }
-                                pictureBox4.BackgroundImage = drawmap;
-                                break;
                             }
+                        }
+                        catch (Exception ex)
+                        {
+                            textBox2.Text = "OCR Error: " + ex.Message;
                         }
                     }
                     GC.Collect();
@@ -287,6 +495,18 @@ namespace mapocr
             }
         }
         private Map? currentLoaded = null;
+
+        private Pix BitmapToPix(Bitmap bitmap)
+        {
+            // Save bitmap to memory stream and load as Pix
+            using (var ms = new System.IO.MemoryStream())
+            {
+                bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                ms.Position = 0;
+                return Pix.LoadFromMemory(ms.ToArray());
+            }
+        }
+
         private string currentMapRead = "";
         string proA = "";
         protected Bitmap drawMapPoint(Bitmap Map, string Xmode, string Ymode, int Xh, int Xm, int Xs, int Yh, int Ym, int Ys)
@@ -302,7 +522,6 @@ namespace mapocr
             {
                 dirY = 1;
             }
-            currentLoaded = new Map() { r1 = Xh, m1 = Xm, s1 = Xs, r2 = Yh, m2 = Ym, s2 = Ys, ns = dirY, we = dirX };
 
             var dotSize = 50;
             var centerPointX = 1033;
@@ -322,6 +541,15 @@ namespace mapocr
 
             int XposReal = (int)Math.Round((double)(centerPointX + WEPxl) - (dotSize / 2));
             int YposReal = (int)Math.Round((double)(centerPointY + NSPxl) - (dotSize / 2));
+            
+            // Debug output to textBox6
+            textBox6.Text = $"Coords: {Xmode}{Xh}°{Xm}'{Xs}\" {Ymode}{Yh}°{Ym}'{Ys}\"\n" +
+                           $"WE: {WESecond:F2} * {dirX} = {WEPxl:F2}\n" +
+                           $"NS: {NSSecond:F2} * {dirY} = {NSPxl:F2}\n" +
+                           $"Position: X={XposReal}, Y={YposReal}\n" +
+                           $"Map Size: {Map.Width}x{Map.Height}\n" +
+                           $"PictureBox: {pictureBox4.Width}x{pictureBox4.Height}";
+            
             return DrawDot(Map, XposReal, YposReal, dotSize);
 
         }
@@ -544,128 +772,213 @@ namespace mapocr
             label6.Text = trackBar3.Value.ToString();
         }
 
-        private void button2_Click(object sender, EventArgs e)
+        private void SetupTooltips()
         {
-            maps.Clear();
-            maphash.Clear();
-            label7.Text = "0";
-            listBox1.Items.Clear();
+            var toolTip = new ToolTip();
+            toolTip.SetToolTip(trackBar1, "Detection Threshold: Adjust if map icon is not being detected");
+            toolTip.SetToolTip(trackBar2, "Color Tolerance: Fine-tune OCR color matching");
+            toolTip.SetToolTip(trackBar3, "Image Scale: Increase text size for better OCR accuracy");
+            toolTip.SetToolTip(comboBox1, "Select which ArcheAge window to track");
+            toolTip.SetToolTip(button1, "Confirm window selection / Pause scanning");
+            
+            // Add status indicator box
+            statusIndicator = new Panel()
+            {
+                Width = 150,
+                Height = 60,
+                Location = new System.Drawing.Point(10, this.Height - 100),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.Red,
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left
+            };
+            
+            statusLabel = new Label()
+            {
+                Text = "Looking for map...",
+                AutoSize = false,
+                Width = 140,
+                Height = 50,
+                Location = new System.Drawing.Point(5, 5),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = new Font(this.Font.FontFamily, 9, FontStyle.Bold),
+                ForeColor = Color.White
+            };
+            
+            statusIndicator.Controls.Add(statusLabel);
+            this.Controls.Add(statusIndicator);
+            statusIndicator.BringToFront();
+            toolTip.SetToolTip(statusIndicator, "Current scanning status:\nRed = Looking for map\nGreen = Decoding map\nBlue = Map confirmed");
+            
+            // Add help button dynamically
+            var helpButton = new Button()
+            {
+                Text = "?",
+                Width = 30,
+                Height = 30,
+                Location = new System.Drawing.Point(this.Width - 60, 10),
+                Font = new Font(this.Font.FontFamily, 14, FontStyle.Bold),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
+            };
+            helpButton.Click += HelpButton_Click;
+            this.Controls.Add(helpButton);
+            toolTip.SetToolTip(helpButton, "Show help and usage instructions");
         }
 
-        [DllImport("user32.dll")]
-        public static extern short GetAsyncKeyState(int vKey);
-
-        private System.Windows.Forms.Timer? keyPollTimer = null;
-        private bool lastKeyState = false;
-
-        public void StartKeyPolling()
+        private void HelpButton_Click(object? sender, EventArgs e)
         {
-            if (keyPollTimer == null)
+            MessageBox.Show(
+                "HOW TO USE:\\n\\n" +
+                "1. Start ArcheAge\\n" +
+                "2. Select the game window from dropdown\\n" +
+                "3. Application will automatically track your location\\n" +
+                "4. View current coordinates and region on map\\n\\n" +
+                "TIPS:\\n" +
+                "- Adjust sliders if detection isn't working\\n" +
+                "- Settings are saved automatically\\n" +
+                "- Use Pause button to stop/resume scanning\\n\\n" +
+                "CONTROLS:\\n" +
+                "- Pattern match: Detection sensitivity\\n" +
+                "- Color match: OCR color tolerance\\n" +
+                "- Resize: Text scaling for OCR\\n\\n" +
+                "STATUS INDICATOR:\\n" +
+                "- RED = Looking for map\\n" +
+                "- GREEN = Decoding map data\\n" +
+                "- BLUE = Map confirmed & decoded",
+                "Quick Help",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+
+        private void UpdateStatusIndicator(Color color, string text)
+        {
+            if (statusIndicator != null && statusLabel != null)
             {
-                keyPollTimer = new System.Windows.Forms.Timer();
-                keyPollTimer.Interval = 50; // Poll every 50ms
-                keyPollTimer.Tick += KeyPollTimer_Tick;
+                statusIndicator.BackColor = color;
+                statusLabel.Text = text;
+                statusLabel.ForeColor = Color.White;
             }
-            keyPollTimer.Start();
         }
 
-        public void StopKeyPolling()
+        private void SetupAutoAdjustTimer()
         {
-            keyPollTimer?.Stop();
+            autoAdjustTimer = new System.Windows.Forms.Timer();
+            autoAdjustTimer.Interval = 2000; // Check every 2 seconds
+            autoAdjustTimer.Tick += AutoAdjustTimer_Tick;
         }
 
-        private void KeyPollTimer_Tick(object? sender, EventArgs e)
+        private void AutoAdjustTimer_Tick(object? sender, EventArgs e)
         {
-            if (awaitingBind)
+            // Debug output
+            textBox2.Text = $"Timer Tick: {DateTime.Now:HH:mm:ss}\n" +
+                           $"isCurrentlyDecoding: {isCurrentlyDecoding}\n" +
+                           $"trackBar3.Value: {trackBar3.Value}";
+            
+            // If we're stuck in decoding state, auto-adjust resize UP
+            if (isCurrentlyDecoding)
             {
-                // Check for any key press during binding
-                for (int i = 0; i < 256; i++)
+                // Timer already waited 2 seconds, so just increment now
+                
+                // Bump up the resize by 10
+                if (trackBar3.Value + 10 <= trackBar3.Maximum)
                 {
-                    short keyState = GetAsyncKeyState(i);
-                    if ((keyState & 0x8000) != 0)
+                    trackBar3.Value += 10;
+                    autoAdjustCounter++;
+                    
+                    // Explicitly update the label to reflect the new value
+                    label6.Text = trackBar3.Value.ToString();
+                    
+                    // Force UI refresh to show the trackbar change
+                    trackBar3.Refresh();
+                    label6.Refresh();
+                    
+                    // Update status to show auto-adjustment
+                    if (statusLabel != null)
                     {
-                        // Key is pressed
-                        char keyChar = (char)i;
-                        if (char.IsLetterOrDigit(keyChar) || char.IsPunctuation(keyChar))
-                        {
-                            keyboard_trigger = keyChar;
-                            textBox3.Text = keyboard_trigger.ToString();
-                            awaitingBind = false;
-                            button4.Enabled = true;
-                            break;
-                        }
+                        statusLabel.Text = $"Decoding map...\nAuto-adjusting ({autoAdjustCounter})\nResize: {trackBar3.Value}";
                     }
                 }
             }
-            else if (keyboard_trigger != null)
-            {
-                // Check if the bound key is pressed
-                int vKey = char.ToUpper((char)keyboard_trigger);
-                short keyState = GetAsyncKeyState(vKey);
-                bool isPressed = (keyState & 0x8000) != 0;
+        }
 
-                // Detect key press (transition from not pressed to pressed)
-                if (isPressed && !lastKeyState)
+        private void StartAutoAdjust()
+        {
+            // Only set the start time if we're not already decoding
+            if (!isCurrentlyDecoding)
+            {
+                isCurrentlyDecoding = true;
+                lastDecodingStartTime = DateTime.Now;
+                if (autoAdjustTimer != null && !autoAdjustTimer.Enabled)
                 {
-                    if (currentLoaded != null)
+                    autoAdjustTimer.Start();
+                }
+            }
+            // If already decoding, keep the timer running but don't reset the start time
+        }
+
+        private void StopAutoAdjust()
+        {
+            isCurrentlyDecoding = false;
+            autoAdjustCounter = 0;
+        }
+
+        private void LoadSettings()
+        {
+            try
+            {
+                // Try to load settings from file
+                string settingsFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
+                if (File.Exists(settingsFile))
+                {
+                    var settingsJson = File.ReadAllText(settingsFile);
+                    var settings = JsonSerializer.Deserialize<AppSettings>(settingsJson);
+                    if (settings != null)
                     {
-                        if (maps.Contains(currentLoaded) == false)
-                        {
-                            maps.Add(currentLoaded);
-                            label7.Text = maps.Count().ToString();
-                            listBox1.Items.Add(currentMapRead);
-                        }
+                        trackBar1.Value = Math.Max(trackBar1.Minimum, Math.Min(trackBar1.Maximum, settings.DetectionThreshold));
+                        trackBar2.Value = Math.Max(trackBar2.Minimum, Math.Min(trackBar2.Maximum, settings.ColorTolerance));
+                        trackBar3.Value = Math.Max(trackBar3.Minimum, Math.Min(trackBar3.Maximum, settings.ImageScale));
                     }
                 }
-
-                lastKeyState = isPressed;
+            }
+            catch
+            {
+                // If loading fails, just use default values
             }
         }
 
-        protected char? keyboard_trigger = null;
-        protected bool awaitingBind = false;
-
-
-        private void button3_Click(object sender, EventArgs e)
+        private void Form1_FormClosing(object? sender, FormClosingEventArgs e)
         {
-            if (maps.Count > 0)
+            try
             {
-                var options = new JsonSerializerOptions()
+                // Save settings to file
+                var settings = new AppSettings
                 {
-                    IncludeFields = true,
+                    DetectionThreshold = trackBar1.Value,
+                    ColorTolerance = trackBar2.Value,
+                    ImageScale = trackBar3.Value
                 };
-                var json = JsonSerializer.Serialize(maps, options);
-                json = Base64Encode(json);
-                var url = "https://basestr.github.io/archeagemap/index.html?m=" + json;
-                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+                
+                string settingsFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
+                var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(settingsFile, json);
             }
+            catch
+            {
+                // Silently fail if we can't save settings
+            }
+            
+            // Clean up resources
+            ocr?.Dispose();
+            autoAdjustTimer?.Stop();
+            autoAdjustTimer?.Dispose();
+            isCurrentlyDecoding = false;
         }
 
-        public static string Base64Encode(string plainText)
-        {
-            var plainTextBytes = System.Text.Encoding.UTF8.GetBytes(plainText);
-            return System.Convert.ToBase64String(plainTextBytes);
-        }
-
-        private void button4_Click(object sender, EventArgs e)
-        {
-            awaitingBind = true;
-            keyboard_trigger = null;
-            textBox3.Text = "~~~ NONE ~~~";
-            button4.Enabled = false;
-            StartKeyPolling();
-        }
     }
 
-    public class Map
+    public class AppSettings
     {
-        public int we = 0;
-        public int ns = 0;
-        public int r1 = 0;
-        public int m1 = 0;
-        public int s1 = 0;
-        public int r2 = 0;
-        public int m2 = 0;
-        public int s2 = 0;
+        public int DetectionThreshold { get; set; } = 50;
+        public int ColorTolerance { get; set; } = 10;
+        public int ImageScale { get; set; } = 5;
     }
 }

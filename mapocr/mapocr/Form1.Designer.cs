@@ -51,13 +51,7 @@
             pictureBox4 = new PictureBox();
             tabControl1 = new TabControl();
             tabPage1 = new TabPage();
-            label7 = new Label();
-            button3 = new Button();
-            listBox1 = new ListBox();
-            button2 = new Button();
             tabPage2 = new TabPage();
-            textBox3 = new TextBox();
-            button4 = new Button();
             tabPage3 = new TabPage();
             ((System.ComponentModel.ISupportInitialize)pictureBox1).BeginInit();
             ((System.ComponentModel.ISupportInitialize)pictureBox2).BeginInit();
@@ -74,26 +68,26 @@
             // 
             // textBox1
             // 
-            textBox1.Location = new System.Drawing.Point(56, 177);
+            textBox1.Location = new Point(56, 177);
             textBox1.Multiline = true;
             textBox1.Name = "textBox1";
-            textBox1.Size = new System.Drawing.Size(378, 47);
+            textBox1.Size = new Size(378, 47);
             textBox1.TabIndex = 0;
             // 
             // pictureBox1
             // 
             pictureBox1.BackgroundImageLayout = ImageLayout.Stretch;
-            pictureBox1.Location = new System.Drawing.Point(14, 15);
+            pictureBox1.Location = new Point(14, 15);
             pictureBox1.Name = "pictureBox1";
-            pictureBox1.Size = new System.Drawing.Size(205, 132);
+            pictureBox1.Size = new Size(205, 132);
             pictureBox1.TabIndex = 1;
             pictureBox1.TabStop = false;
             // 
             // button1
             // 
-            button1.Location = new System.Drawing.Point(300, 374);
+            button1.Location = new Point(300, 374);
             button1.Name = "button1";
-            button1.Size = new System.Drawing.Size(75, 23);
+            button1.Size = new Size(75, 23);
             button1.TabIndex = 2;
             button1.Text = "Select app";
             button1.UseVisualStyleBackColor = true;
@@ -102,9 +96,9 @@
             // comboBox1
             // 
             comboBox1.FormattingEnabled = true;
-            comboBox1.Location = new System.Drawing.Point(11, 375);
+            comboBox1.Location = new Point(11, 375);
             comboBox1.Name = "comboBox1";
-            comboBox1.Size = new System.Drawing.Size(283, 23);
+            comboBox1.Size = new Size(283, 23);
             comboBox1.TabIndex = 3;
             comboBox1.SelectedIndexChanged += comboBox1_SelectedIndexChanged;
             // 
@@ -114,43 +108,43 @@
             // 
             // textBox2
             // 
-            textBox2.Location = new System.Drawing.Point(6, 7);
+            textBox2.Location = new Point(6, 7);
             textBox2.Multiline = true;
             textBox2.Name = "textBox2";
-            textBox2.Size = new System.Drawing.Size(378, 89);
+            textBox2.Size = new Size(378, 89);
             textBox2.TabIndex = 5;
             // 
             // pictureBox2
             // 
             pictureBox2.BackgroundImageLayout = ImageLayout.None;
-            pictureBox2.Location = new System.Drawing.Point(58, 226);
+            pictureBox2.Location = new Point(58, 226);
             pictureBox2.Name = "pictureBox2";
-            pictureBox2.Size = new System.Drawing.Size(173, 116);
+            pictureBox2.Size = new Size(173, 116);
             pictureBox2.TabIndex = 9;
             pictureBox2.TabStop = false;
             // 
             // textBox5
             // 
-            textBox5.Location = new System.Drawing.Point(6, 102);
+            textBox5.Location = new Point(6, 102);
             textBox5.Multiline = true;
             textBox5.Name = "textBox5";
-            textBox5.Size = new System.Drawing.Size(378, 89);
+            textBox5.Size = new Size(378, 89);
             textBox5.TabIndex = 11;
             // 
             // textBox6
             // 
-            textBox6.Location = new System.Drawing.Point(665, 554);
+            textBox6.Location = new Point(665, 554);
             textBox6.Multiline = true;
             textBox6.Name = "textBox6";
-            textBox6.Size = new System.Drawing.Size(161, 49);
+            textBox6.Size = new Size(161, 49);
             textBox6.TabIndex = 12;
             // 
             // trackBar1
             // 
-            trackBar1.Location = new System.Drawing.Point(18, 317);
+            trackBar1.Location = new Point(18, 317);
             trackBar1.Maximum = 100;
             trackBar1.Name = "trackBar1";
-            trackBar1.Size = new System.Drawing.Size(172, 45);
+            trackBar1.Size = new Size(172, 45);
             trackBar1.TabIndex = 13;
             trackBar1.TickFrequency = 5;
             trackBar1.Value = 88;
@@ -159,27 +153,27 @@
             // label1
             // 
             label1.AutoSize = true;
-            label1.Location = new System.Drawing.Point(19, 299);
+            label1.Location = new Point(19, 299);
             label1.Name = "label1";
-            label1.Size = new System.Drawing.Size(82, 15);
+            label1.Size = new Size(82, 15);
             label1.TabIndex = 14;
             label1.Text = "Pattern match";
             // 
             // label2
             // 
             label2.AutoSize = true;
-            label2.Location = new System.Drawing.Point(19, 207);
+            label2.Location = new Point(19, 207);
             label2.Name = "label2";
-            label2.Size = new System.Drawing.Size(73, 15);
+            label2.Size = new Size(73, 15);
             label2.TabIndex = 16;
             label2.Text = "Color match";
             // 
             // trackBar2
             // 
-            trackBar2.Location = new System.Drawing.Point(18, 225);
+            trackBar2.Location = new Point(18, 225);
             trackBar2.Maximum = 100;
             trackBar2.Name = "trackBar2";
-            trackBar2.Size = new System.Drawing.Size(172, 45);
+            trackBar2.Size = new Size(172, 45);
             trackBar2.TabIndex = 15;
             trackBar2.TickFrequency = 5;
             trackBar2.Value = 59;
@@ -188,28 +182,28 @@
             // pictureBox3
             // 
             pictureBox3.BackgroundImageLayout = ImageLayout.None;
-            pictureBox3.Location = new System.Drawing.Point(261, 226);
+            pictureBox3.Location = new Point(261, 226);
             pictureBox3.Name = "pictureBox3";
-            pictureBox3.Size = new System.Drawing.Size(173, 116);
+            pictureBox3.Size = new Size(173, 116);
             pictureBox3.TabIndex = 17;
             pictureBox3.TabStop = false;
             // 
             // label3
             // 
             label3.AutoSize = true;
-            label3.Location = new System.Drawing.Point(213, 240);
+            label3.Location = new Point(213, 240);
             label3.Name = "label3";
-            label3.Size = new System.Drawing.Size(39, 15);
+            label3.Size = new Size(39, 15);
             label3.TabIndex = 19;
             label3.Text = "Resize";
             // 
             // trackBar3
             // 
-            trackBar3.Location = new System.Drawing.Point(212, 258);
+            trackBar3.Location = new Point(212, 258);
             trackBar3.Maximum = 800;
             trackBar3.Minimum = 10;
             trackBar3.Name = "trackBar3";
-            trackBar3.Size = new System.Drawing.Size(172, 45);
+            trackBar3.Size = new Size(172, 45);
             trackBar3.SmallChange = 50;
             trackBar3.TabIndex = 18;
             trackBar3.TickFrequency = 50;
@@ -219,36 +213,36 @@
             // label4
             // 
             label4.AutoSize = true;
-            label4.Location = new System.Drawing.Point(107, 299);
+            label4.Location = new Point(107, 299);
             label4.Name = "label4";
-            label4.Size = new System.Drawing.Size(19, 15);
+            label4.Size = new Size(19, 15);
             label4.TabIndex = 20;
             label4.Text = "88";
             // 
             // label5
             // 
             label5.AutoSize = true;
-            label5.Location = new System.Drawing.Point(106, 207);
+            label5.Location = new Point(106, 207);
             label5.Name = "label5";
-            label5.Size = new System.Drawing.Size(19, 15);
+            label5.Size = new Size(19, 15);
             label5.TabIndex = 21;
             label5.Text = "59";
             // 
             // label6
             // 
             label6.AutoSize = true;
-            label6.Location = new System.Drawing.Point(300, 240);
+            label6.Location = new Point(300, 240);
             label6.Name = "label6";
-            label6.Size = new System.Drawing.Size(25, 15);
+            label6.Size = new Size(25, 15);
             label6.TabIndex = 22;
             label6.Text = "217";
             // 
             // pictureBox4
             // 
             pictureBox4.BackgroundImageLayout = ImageLayout.Stretch;
-            pictureBox4.Location = new System.Drawing.Point(6, 3);
+            pictureBox4.Location = new Point(6, 3);
             pictureBox4.Name = "pictureBox4";
-            pictureBox4.Size = new System.Drawing.Size(600, 600);
+            pictureBox4.Size = new Size(600, 600);
             pictureBox4.SizeMode = PictureBoxSizeMode.StretchImage;
             pictureBox4.TabIndex = 23;
             pictureBox4.TabStop = false;
@@ -258,70 +252,26 @@
             tabControl1.Controls.Add(tabPage1);
             tabControl1.Controls.Add(tabPage2);
             tabControl1.Controls.Add(tabPage3);
-            tabControl1.Location = new System.Drawing.Point(12, 12);
+            tabControl1.Location = new Point(12, 12);
             tabControl1.Name = "tabControl1";
             tabControl1.SelectedIndex = 0;
-            tabControl1.Size = new System.Drawing.Size(885, 643);
+            tabControl1.Size = new Size(620, 643);
             tabControl1.TabIndex = 24;
             // 
             // tabPage1
             // 
-            tabPage1.Controls.Add(label7);
-            tabPage1.Controls.Add(button3);
-            tabPage1.Controls.Add(listBox1);
-            tabPage1.Controls.Add(button2);
             tabPage1.Controls.Add(textBox6);
             tabPage1.Controls.Add(pictureBox4);
-            tabPage1.Location = new System.Drawing.Point(4, 24);
+            tabPage1.Location = new Point(4, 24);
             tabPage1.Name = "tabPage1";
             tabPage1.Padding = new Padding(3);
-            tabPage1.Size = new System.Drawing.Size(877, 615);
+            tabPage1.Size = new Size(612, 615);
             tabPage1.TabIndex = 0;
             tabPage1.Text = "Map";
             tabPage1.UseVisualStyleBackColor = true;
             // 
-            // label7
-            // 
-            label7.AutoSize = true;
-            label7.Location = new System.Drawing.Point(723, 529);
-            label7.Name = "label7";
-            label7.Size = new System.Drawing.Size(13, 15);
-            label7.TabIndex = 27;
-            label7.Text = "0";
-            // 
-            // button3
-            // 
-            button3.Location = new System.Drawing.Point(634, 525);
-            button3.Name = "button3";
-            button3.Size = new System.Drawing.Size(51, 23);
-            button3.TabIndex = 26;
-            button3.Text = "Go";
-            button3.UseVisualStyleBackColor = true;
-            button3.Click += button3_Click;
-            // 
-            // listBox1
-            // 
-            listBox1.FormattingEnabled = true;
-            listBox1.ItemHeight = 15;
-            listBox1.Location = new System.Drawing.Point(634, 12);
-            listBox1.Name = "listBox1";
-            listBox1.Size = new System.Drawing.Size(219, 499);
-            listBox1.TabIndex = 25;
-            // 
-            // button2
-            // 
-            button2.Location = new System.Drawing.Point(802, 525);
-            button2.Name = "button2";
-            button2.Size = new System.Drawing.Size(51, 23);
-            button2.TabIndex = 24;
-            button2.Text = "Clear saved maps";
-            button2.UseVisualStyleBackColor = true;
-            button2.Click += button2_Click;
-            // 
             // tabPage2
             // 
-            tabPage2.Controls.Add(textBox3);
-            tabPage2.Controls.Add(button4);
             tabPage2.Controls.Add(textBox2);
             tabPage2.Controls.Add(textBox5);
             tabPage2.Controls.Add(label6);
@@ -335,32 +285,13 @@
             tabPage2.Controls.Add(trackBar2);
             tabPage2.Controls.Add(label1);
             tabPage2.Controls.Add(trackBar1);
-            tabPage2.Location = new System.Drawing.Point(4, 24);
+            tabPage2.Location = new Point(4, 24);
             tabPage2.Name = "tabPage2";
             tabPage2.Padding = new Padding(3);
-            tabPage2.Size = new System.Drawing.Size(877, 615);
+            tabPage2.Size = new Size(877, 615);
             tabPage2.TabIndex = 1;
             tabPage2.Text = "Config";
             tabPage2.UseVisualStyleBackColor = true;
-            // 
-            // textBox3
-            // 
-            textBox3.Location = new System.Drawing.Point(535, 56);
-            textBox3.Name = "textBox3";
-            textBox3.ReadOnly = true;
-            textBox3.Size = new System.Drawing.Size(115, 23);
-            textBox3.TabIndex = 24;
-            textBox3.Text = "~~ NONE ~~";
-            // 
-            // button4
-            // 
-            button4.Location = new System.Drawing.Point(656, 58);
-            button4.Name = "button4";
-            button4.Size = new System.Drawing.Size(94, 21);
-            button4.TabIndex = 23;
-            button4.Text = "Set bind";
-            button4.UseVisualStyleBackColor = true;
-            button4.Click += button4_Click;
             // 
             // tabPage3
             // 
@@ -368,18 +299,18 @@
             tabPage3.Controls.Add(pictureBox3);
             tabPage3.Controls.Add(textBox1);
             tabPage3.Controls.Add(pictureBox2);
-            tabPage3.Location = new System.Drawing.Point(4, 24);
+            tabPage3.Location = new Point(4, 24);
             tabPage3.Name = "tabPage3";
-            tabPage3.Size = new System.Drawing.Size(877, 615);
+            tabPage3.Size = new Size(877, 615);
             tabPage3.TabIndex = 2;
             tabPage3.Text = "Helpers";
             tabPage3.UseVisualStyleBackColor = true;
             // 
             // Form1
             // 
-            AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
+            AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new System.Drawing.Size(904, 657);
+            ClientSize = new Size(637, 657);
             Controls.Add(tabControl1);
             Name = "Form1";
             Text = "Form1";
@@ -427,11 +358,5 @@
         private TabPage tabPage1;
         private TabPage tabPage2;
         private TabPage tabPage3;
-        private Button button2;
-        private ListBox listBox1;
-        private Label label7;
-        private Button button3;
-        private TextBox textBox3;
-        private Button button4;
     }
 }
