@@ -24,7 +24,6 @@ using Size = System.Drawing.Size;
 using SolidBrush = System.Drawing.SolidBrush;
 using System.Buffers.Text;
 using System.Security.Policy;
-using Gma.System.MouseKeyHook;
 using Emgu.CV.ImgHash;
 
 namespace mapocr
@@ -81,7 +80,6 @@ namespace mapocr
 
         public Form1()
         {
-            Subscribe();
             InitializeComponent();
             createRegions();
 
@@ -554,39 +552,78 @@ namespace mapocr
             listBox1.Items.Clear();
         }
 
-        private IKeyboardMouseEvents? m_GlobalHook = null;
-        public void Subscribe()
+        [DllImport("user32.dll")]
+        public static extern short GetAsyncKeyState(int vKey);
+
+        private System.Windows.Forms.Timer? keyPollTimer = null;
+        private bool lastKeyState = false;
+
+        public void StartKeyPolling()
         {
-            // Note: for the application hook, use the Hook.AppEvents() instead
-            m_GlobalHook = Hook.GlobalEvents();
-            m_GlobalHook.KeyPress += GlobalHookKeyPress;
-        }
-        protected char? keyboard_trigger = null;
-        protected bool awaitingBind = false;
-        private void GlobalHookKeyPress(object? sender, KeyPressEventArgs e)
-        {
-            if (keyboard_trigger == null)
+            if (keyPollTimer == null)
             {
-                if (awaitingBind == true)
-                {
-                    keyboard_trigger = e.KeyChar;
-                    textBox3.Text = keyboard_trigger.ToString();
-                    awaitingBind = false;
-                    button4.Enabled = true;
-                }
+                keyPollTimer = new System.Windows.Forms.Timer();
+                keyPollTimer.Interval = 50; // Poll every 50ms
+                keyPollTimer.Tick += KeyPollTimer_Tick;
             }
-            else if(keyboard_trigger == e.KeyChar) 
+            keyPollTimer.Start();
+        }
+
+        public void StopKeyPolling()
+        {
+            keyPollTimer?.Stop();
+        }
+
+        private void KeyPollTimer_Tick(object? sender, EventArgs e)
+        {
+            if (awaitingBind)
             {
-                if (currentLoaded != null) {
-                    if (maps.Contains(currentLoaded) == false)
+                // Check for any key press during binding
+                for (int i = 0; i < 256; i++)
+                {
+                    short keyState = GetAsyncKeyState(i);
+                    if ((keyState & 0x8000) != 0)
                     {
-                        maps.Add(currentLoaded);
-                        label7.Text = maps.Count().ToString();
-                        listBox1.Items.Add(currentMapRead);
+                        // Key is pressed
+                        char keyChar = (char)i;
+                        if (char.IsLetterOrDigit(keyChar) || char.IsPunctuation(keyChar))
+                        {
+                            keyboard_trigger = keyChar;
+                            textBox3.Text = keyboard_trigger.ToString();
+                            awaitingBind = false;
+                            button4.Enabled = true;
+                            break;
+                        }
                     }
                 }
             }
+            else if (keyboard_trigger != null)
+            {
+                // Check if the bound key is pressed
+                int vKey = char.ToUpper((char)keyboard_trigger);
+                short keyState = GetAsyncKeyState(vKey);
+                bool isPressed = (keyState & 0x8000) != 0;
+
+                // Detect key press (transition from not pressed to pressed)
+                if (isPressed && !lastKeyState)
+                {
+                    if (currentLoaded != null)
+                    {
+                        if (maps.Contains(currentLoaded) == false)
+                        {
+                            maps.Add(currentLoaded);
+                            label7.Text = maps.Count().ToString();
+                            listBox1.Items.Add(currentMapRead);
+                        }
+                    }
+                }
+
+                lastKeyState = isPressed;
+            }
         }
+
+        protected char? keyboard_trigger = null;
+        protected bool awaitingBind = false;
 
 
         private void button3_Click(object sender, EventArgs e)
@@ -616,6 +653,7 @@ namespace mapocr
             keyboard_trigger = null;
             textBox3.Text = "~~~ NONE ~~~";
             button4.Enabled = false;
+            StartKeyPolling();
         }
     }
 
