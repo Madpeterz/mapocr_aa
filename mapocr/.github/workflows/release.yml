@@ -1,0 +1,41 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+        
+    - name: Restore dependencies
+      run: dotnet restore mapocr/mapocr.csproj
+      
+    - name: Build
+      run: dotnet build mapocr/mapocr.csproj --configuration Release --no-restore
+      
+    - name: Publish
+      run: dotnet publish mapocr/mapocr.csproj --configuration Release --output ./publish --no-build
+      
+    - name: Create release archive
+      run: |
+        Compress-Archive -Path ./publish/* -DestinationPath ./mapocr-${{ github.ref_name }}.zip
+      shell: pwsh
+      
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: mapocr-${{ github.ref_name }}.zip
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

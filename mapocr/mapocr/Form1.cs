@@ -304,50 +304,59 @@ namespace mapocr
                 // Download the trained data file
                 string url = "https://github.com/tesseract-ocr/tessdata/raw/main/eng.traineddata";
                 
-                using (var client = new System.Net.WebClient())
+                // Show a simple progress form
+                var progressForm = new Form()
                 {
-                    // Show a simple progress form
-                    var progressForm = new Form()
+                    Text = "Downloading Tesseract Data",
+                    Width = 400,
+                    Height = 100,
+                    FormBorderStyle = FormBorderStyle.FixedDialog,
+                    StartPosition = FormStartPosition.CenterScreen,
+                    MaximizeBox = false,
+                    MinimizeBox = false
+                };
+                
+                var label = new Label()
+                {
+                    Text = "Downloading eng.traineddata...",
+                    AutoSize = true,
+                    Left = 20,
+                    Top = 20
+                };
+                progressForm.Controls.Add(label);
+                
+                progressForm.Show();
+                Application.DoEvents();
+                
+                using (var client = new System.Net.Http.HttpClient())
+                {
+                    var response = client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead).Result;
+                    response.EnsureSuccessStatusCode();
+                    
+                    var totalBytes = response.Content.Headers.ContentLength ?? 0;
+                    using (var contentStream = response.Content.ReadAsStreamAsync().Result)
+                    using (var fileStream = new FileStream(trainedDataFile, FileMode.Create, FileAccess.Write, FileShare.None))
                     {
-                        Text = "Downloading Tesseract Data",
-                        Width = 400,
-                        Height = 100,
-                        FormBorderStyle = FormBorderStyle.FixedDialog,
-                        StartPosition = FormStartPosition.CenterScreen,
-                        MaximizeBox = false,
-                        MinimizeBox = false
-                    };
-                    
-                    var label = new Label()
-                    {
-                        Text = "Downloading eng.traineddata...",
-                        AutoSize = true,
-                        Left = 20,
-                        Top = 20
-                    };
-                    progressForm.Controls.Add(label);
-                    
-                    client.DownloadProgressChanged += (s, e) =>
-                    {
-                        label.Text = $"Downloading: {e.ProgressPercentage}%";
-                    };
-                    
-                    var downloadTask = client.DownloadFileTaskAsync(url, trainedDataFile);
-                    progressForm.Show();
-                    
-                    while (!downloadTask.IsCompleted)
-                    {
-                        Application.DoEvents();
-                        System.Threading.Thread.Sleep(100);
-                    }
-                    
-                    progressForm.Close();
-                    
-                    if (downloadTask.Exception != null)
-                    {
-                        throw downloadTask.Exception;
+                        var buffer = new byte[8192];
+                        long totalRead = 0;
+                        int bytesRead;
+                        
+                        while ((bytesRead = contentStream.Read(buffer, 0, buffer.Length)) > 0)
+                        {
+                            fileStream.Write(buffer, 0, bytesRead);
+                            totalRead += bytesRead;
+                            
+                            if (totalBytes > 0)
+                            {
+                                var percentage = (int)((totalRead * 100) / totalBytes);
+                                label.Text = $"Downloading: {percentage}%";
+                                Application.DoEvents();
+                            }
+                        }
                     }
                 }
+                
+                progressForm.Close();
 
                 return File.Exists(trainedDataFile);
             }
