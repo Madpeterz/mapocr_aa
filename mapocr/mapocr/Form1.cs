@@ -445,17 +445,21 @@ namespace mapocr
                                 {
                                     string ocrText = page.GetText();
                                     float confidence = page.GetMeanConfidence();
-                                    textBox2.Text = ocrText + " == " + (confidence * 100).ToString("F2");
                                     
-                                    string[] bits = ocrText.Split(new char[] { '"', '\'', '`', '°', ',', '.', '°', ' ', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-                                    // E@1@52@0@
-                                    // S@21@2@2
+                                    // Clean up common OCR mistakes before processing
+                                    string cleanedText = CleanOcrText(ocrText);
+                                    
+                                    textBox2.Text = $"Original: {ocrText}\nCleaned: {cleanedText}\nConfidence: {(confidence * 100):F2}%";
+                                    
+                                    string[] bits = cleanedText.Split(new char[] { '"', '\'', '`', '°', ',', '.', '°', ' ', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+                                    // Expected format: X XH°XM'XS", Y YH°YM'YS"
+                                    // After split: [X, XH, XM, XS, Y, YH, YM, YS]
                                     textBox6.Text = "? " + bits.Count().ToString() + " == " + String.Join(" ", bits);
                                     string AAA = String.Join(" ", bits);
                                     if (AAA != proA)
                                     {
                                         proA = AAA;
-                                        if (bits.Count() == 8)
+                                        if (bits.Count() == 8 && IsValidCoordinateFormat(bits))
                                         {
                                             textBox1.Text = AAA;
                                             try
@@ -485,10 +489,16 @@ namespace mapocr
                                             
                                             
                                             // Update status indicator - Map confirmed
-                                            UpdateStatusIndicator(Color.Blue, "Map confirmed!");
+                                            UpdateStatusIndicator(Color.Blue, "Map confirmed! \n "+string.Join(", ",bits)+"");
                                             StopAutoAdjust(); // Successfully decoded, stop auto-adjust
                                             
                                             break;
+                                        }
+                                        else if (bits.Count() == 8)
+                                        {
+                                            // 8 parts but invalid format - show what we got for debugging
+                                            UpdateStatusIndicator(Color.Orange, $"Invalid format\n{string.Join(" ", bits)}");
+                                            // Auto-adjust will continue in background
                                         }
                                     }
                                 }
@@ -514,6 +524,73 @@ namespace mapocr
                 ms.Position = 0;
                 return Pix.LoadFromMemory(ms.ToArray());
             }
+        }
+
+        private bool IsValidCoordinateFormat(string[] bits)
+        {
+            // Validate format: X XH°XM'XS", Y YH°YM'YS"
+            // bits should be: [X, XH, XM, XS, Y, YH, YM, YS]
+            
+            if (bits.Length != 8)
+                return false;
+
+            // bits[0] must be E or W
+            if (bits[0] != "E" && bits[0] != "W")
+                return false;
+
+            // bits[4] must be N or S
+            if (bits[4] != "N" && bits[4] != "S")
+                return false;
+
+            // bits[1], [2], [3] must be valid integers (X coordinates)
+            if (!int.TryParse(bits[1], out int xh) || !int.TryParse(bits[2], out int xm) || !int.TryParse(bits[3], out int xs))
+                return false;
+
+            // bits[5], [6], [7] must be valid integers (Y coordinates)
+            if (!int.TryParse(bits[5], out int yh) || !int.TryParse(bits[6], out int ym) || !int.TryParse(bits[7], out int ys))
+                return false;
+
+            // Validate ranges (degrees 0-180, minutes/seconds 0-59)
+            if (xh < 0 || xh > 180 || xm < 0 || xm > 59 || xs < 0 || xs > 59)
+                return false;
+
+            if (yh < 0 || yh > 90 || ym < 0 || ym > 59 || ys < 0 || ys > 59)
+                return false;
+
+            return true;
+        }
+
+        private string CleanOcrText(string ocrText)
+        {
+            // Common OCR mistakes and their corrections
+            // Pattern: seconds delimiter " is often read as 7, 1, or I
+            
+            // Replace common misreads at end of number sequences
+            // Example: W 11'34'317 -> W 11'34'31"
+            //          W 11'34'311 -> W 11'34'31"
+            
+            string cleaned = ocrText;
+            
+            // Fix missing space between direction letter and number
+            // Example: E0 -> E 0, W11 -> W 11, S17 -> S 17, N5 -> N 5
+            cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"([EWNS])(\d)", "$1 $2");
+            
+            // Fix trailing 7, 1, or I after what should be seconds (2 digits followed by 7/1/I)
+            // Pattern: digit digit 7/1/I -> digit digit "
+            cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"(\d{2})[71I]", "$1\"");
+            
+            // Fix missing degree symbol - add it after first number if missing
+            // Pattern: W 11' -> W 11°
+            // Pattern: E 5' -> E 5°
+            cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"([EWNS])\s*(\d{1,3})'", "$1 $2°$3'");
+            
+            // Sometimes comma is read instead of apostrophe
+            cleaned = cleaned.Replace(',', '\'');
+            
+            // Sometimes period is misread
+            cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"(\d)\.(\d)", "$1'$2");
+            
+            return cleaned;
         }
 
         private string currentMapRead = "";
