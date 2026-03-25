@@ -13,3 +13,7 @@ based on the older version of my map tracker that was hosted on bitbucket before
 1: Update the map textures to match the addon
 
 <img width="625" height="651" alt="image" src="https://github.com/user-attachments/assets/8a03273a-2d3c-4957-8b9d-27df7e4cf244" />
+
+<img width="618" height="474" alt="image" src="https://github.com/user-attachments/assets/cc4fdf53-f76e-4caf-804a-7b26b915b7e5" />
+
+<img width="623" height="653" alt="image" src="https://github.com/user-attachments/assets/cd43f428-ed5d-4508-bcd8-d75adbf1901f" />
