@@ -34,7 +34,7 @@ Adjust sliders if coordinates aren't being read correctly
 <img width="625" height="651" alt="image" src="https://github.com/user-attachments/assets/8a03273a-2d3c-4957-8b9d-27df7e4cf244" />
 
 - Tweakable config items and app select
-<img width="618" height="474" alt="image" src="https://github.com/user-attachments/assets/cc4fdf53-f76e-4caf-804a-7b26b915b7e5" />
+<img width="629" height="654" alt="image" src="https://github.com/user-attachments/assets/80ba625b-ee82-494c-8407-009a27effd8f" />
 
 - debug stuff used to check OCR but im to lazy to disable
 <img width="623" height="653" alt="image" src="https://github.com/user-attachments/assets/cd43f428-ed5d-4508-bcd8-d75adbf1901f" />
