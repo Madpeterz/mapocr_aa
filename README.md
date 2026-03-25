@@ -8,11 +8,10 @@ based on the older version of my map tracker that was hosted on bitbucket before
 all this because i hated collecting maps on the other region ( they smell :P )
 
  ### HOW TO USE:
-1. Start ArcheAge BEFORE launching this application
-2. If multiple game instances are detected, select the correct one from the dropdown
-3. Screen monitoring begins automatically
-4. Hover over a map item to display coordinates
-5. position will be shown on the world map as a flashing icon
+1. Select the monitor where ArcheAge is running
+2. Screen monitoring begins automatically on primary screen
+3. Hover over a map item to display coordinates
+4. position will be shown on the world map as a flashing icon
     
   ### TIPS
 Make sure the in-game map item is visible for detection
