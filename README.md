@@ -3,7 +3,7 @@ Map OCR / AA
 =============================
 
 uses ocr to read map location text and display a icon on the map of its location
-based on the older version of my map tracker that was hosted on bitbucket before the take over.
+based on the older version of my map tracker that was hosted on bitbucket
 
 all this because i hated collecting maps on the other region ( they smell :P )
 
