@@ -20,7 +20,9 @@ Adjust sliders if coordinates aren't being read correctly
 ## improvements / changes.
 
 1: Changed OCR engine (its no longer paid for)
+
 2: Simpler processing and app (we have addons for normal usage now)
+
 3: Updated to .net 10 from 7 as it had not been used in a long time
 
 ### Todo
