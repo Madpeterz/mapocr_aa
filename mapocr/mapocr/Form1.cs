@@ -8,8 +8,6 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
-using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.JavaScript;
 using System.Windows.Forms;
 using System.Text.Json;
 using Brush = System.Drawing.Brush;
@@ -20,15 +18,13 @@ using Point = System.Drawing.Point;
 using Rectangle = System.Drawing.Rectangle;
 using Size = System.Drawing.Size;
 using SolidBrush = System.Drawing.SolidBrush;
-using System.Buffers.Text;
-using System.Security.Policy;
 using Emgu.CV.ImgHash;
 
 namespace mapocr
 {
     public partial class Form1 : Form
     {
-        Dictionary<string, Process> procs = new Dictionary<string, Process>();
+        Dictionary<string, Screen> screens = new Dictionary<string, Screen>();
         Bitmap mapsource;
 
         Dictionary<string, List<int>> west_south_regions = new Dictionary<string, List<int>>();
@@ -90,7 +86,7 @@ namespace mapocr
 
             // Setup tooltips for better UX
             SetupTooltips();
-            
+
             // Handle form closing to save settings
             this.FormClosing += Form1_FormClosing;
 
@@ -105,9 +101,6 @@ namespace mapocr
             InitializeOcr();
             World = global::mapocr.Properties.Resources.worldmap;
             pictureBox4.BackgroundImage = World;
-            
-            // Load saved settings
-            LoadSettings();
         }
 
         protected string nameRegion(string Xstyle, string Ystyle, int X1, int Y1)
@@ -144,7 +137,7 @@ namespace mapocr
                 isPaused = !isPaused;
                 button1.Text = isPaused ? "Resume Scanning" : "Pause Scanning";
                 button1.BackColor = isPaused ? Color.LightGreen : Color.LightCoral;
-                
+
                 if (isPaused)
                 {
                     UpdateStatusIndicator(Color.Orange, "Paused");
@@ -159,50 +152,46 @@ namespace mapocr
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            Process[] processCollection = Process.GetProcesses();
-            int loop = 1;
-            foreach (Process process in processCollection)
+            // Detect all available screens/monitors
+            Screen[] allScreens = Screen.AllScreens;
+            int screenIndex = 1;
+
+            foreach (Screen screen in allScreens)
             {
-                if (process.ProcessName.Contains("archeage") == true)
-                {
-                    comboBox1.Items.Add(process.ProcessName + "x" + loop.ToString());
-                    procs.Add(process.ProcessName + "x" + loop.ToString(), process);
-                    loop++;
-                }
+                string screenName = screen.Primary ? 
+                    $"Primary Monitor ({screen.Bounds.Width}x{screen.Bounds.Height})" : 
+                    $"Monitor {screenIndex} ({screen.Bounds.Width}x{screen.Bounds.Height})";
+
+                comboBox1.Items.Add(screenName);
+                screens.Add(screenName, screen);
+                screenIndex++;
             }
-            
-            // Better feedback when no game found
-            if (comboBox1.Items.Count == 0)
-            {
-                MessageBox.Show(
-                    "No ArcheAge process detected!\n\n" +
-                    "Please start ArcheAge first, then restart this application.\n\n" +
-                    "Make sure the game process name contains 'archeage'.",
-                    "Game Not Found", 
-                    MessageBoxButtons.OK, 
-                    MessageBoxIcon.Warning);
-                button1.Enabled = false;
-                UpdateStatusIndicator(Color.DarkGray, "No game found");
-                return;
-            }
-            
-            if (comboBox1.Items.Count == 1)
+
+            // Auto-select primary monitor
+            if (comboBox1.Items.Count > 0)
             {
                 comboBox1.SelectedIndex = 0;
                 comboBox1.Update();
-                button1.Enabled = false;
-                comboBox1.Enabled = false;
+
+                if (comboBox1.Items.Count == 1)
+                {
+                    button1.Enabled = false;
+                    comboBox1.Enabled = false;
+                }
+
                 updateNow();
+                UpdateStatusIndicator(Color.Yellow, "Ready - Waiting for map");
             }
             else
             {
-                // Show selection hint
                 MessageBox.Show(
-                    "Multiple ArcheAge instances detected.\n\n" +
-                    "Please select which one to track from the dropdown.",
-                    "Select Game Instance",
+                    "No monitors detected!\n\n" +
+                    "This should not happen. Please restart the application.",
+                    "Monitor Detection Error",
                     MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
+                    MessageBoxIcon.Error);
+                button1.Enabled = false;
+                UpdateStatusIndicator(Color.DarkGray, "No monitor found");
             }
         }
 
@@ -245,7 +234,7 @@ namespace mapocr
                 // Initialize Tesseract with English language data
                 string tessDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tessdata");
                 string trainedDataFile = Path.Combine(tessDataPath, "eng.traineddata");
-                
+
                 // Check if tessdata exists, if not, offer to download it
                 if (!File.Exists(trainedDataFile))
                 {
@@ -253,15 +242,15 @@ namespace mapocr
                         $"Tesseract data not found at: {tessDataPath}\n\n" +
                         "Would you like to download it automatically now?\n\n" +
                         "(This is a one-time download of approximately 1MB)",
-                        "OCR Setup Required", 
-                        MessageBoxButtons.YesNo, 
+                        "OCR Setup Required",
+                        MessageBoxButtons.YesNo,
                         MessageBoxIcon.Question);
-                    
+
                     if (result == DialogResult.Yes)
                     {
                         if (DownloadTessData(tessDataPath, trainedDataFile))
                         {
-                            MessageBox.Show("Tesseract data downloaded successfully!", 
+                            MessageBox.Show("Tesseract data downloaded successfully!",
                                 "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         }
                         else
@@ -279,7 +268,7 @@ namespace mapocr
                         return;
                     }
                 }
-                
+
                 ocr = new TesseractEngine(tessDataPath, "eng", EngineMode.Default);
                 ocr.SetVariable("tessedit_char_whitelist", "0123456789'\"`°WENS ,");
             }
@@ -303,7 +292,7 @@ namespace mapocr
 
                 // Download the trained data file
                 string url = "https://github.com/tesseract-ocr/tessdata/raw/main/eng.traineddata";
-                
+
                 // Show a simple progress form
                 var progressForm = new Form()
                 {
@@ -315,7 +304,7 @@ namespace mapocr
                     MaximizeBox = false,
                     MinimizeBox = false
                 };
-                
+
                 var label = new Label()
                 {
                     Text = "Downloading eng.traineddata...",
@@ -324,15 +313,15 @@ namespace mapocr
                     Top = 20
                 };
                 progressForm.Controls.Add(label);
-                
+
                 progressForm.Show();
                 Application.DoEvents();
-                
+
                 using (var client = new System.Net.Http.HttpClient())
                 {
                     var response = client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead).Result;
                     response.EnsureSuccessStatusCode();
-                    
+
                     var totalBytes = response.Content.Headers.ContentLength ?? 0;
                     using (var contentStream = response.Content.ReadAsStreamAsync().Result)
                     using (var fileStream = new FileStream(trainedDataFile, FileMode.Create, FileAccess.Write, FileShare.None))
@@ -340,12 +329,12 @@ namespace mapocr
                         var buffer = new byte[8192];
                         long totalRead = 0;
                         int bytesRead;
-                        
+
                         while ((bytesRead = contentStream.Read(buffer, 0, buffer.Length)) > 0)
                         {
                             fileStream.Write(buffer, 0, bytesRead);
                             totalRead += bytesRead;
-                            
+
                             if (totalBytes > 0)
                             {
                                 var percentage = (int)((totalRead * 100) / totalBytes);
@@ -355,7 +344,7 @@ namespace mapocr
                         }
                     }
                 }
-                
+
                 progressForm.Close();
 
                 return File.Exists(trainedDataFile);
@@ -368,7 +357,7 @@ namespace mapocr
         }
 
         private bool isPaused = false;
-        
+
         private void timer1_Tick(object sender, EventArgs e)
         {
             if (!isPaused)
@@ -383,16 +372,16 @@ namespace mapocr
             // Update status indicator - Looking for map
             UpdateStatusIndicator(Color.Red, "Looking for map...");
             StopAutoAdjust(); // Reset when not detecting
-            
+
             textBox1.Text = "-";
             Object_Location = new Point(0, 0);
             if (Detect_objects() == true)
             {
                 // Update status indicator - Decoding map
                 UpdateStatusIndicator(Color.Green, "Decoding map...");
-                
+
                 StartAutoAdjust(); // Start tracking for stuck detection
-                
+
                 X1 = Object_Location.X;
                 Y1 = Object_Location.Y - 29;
                 if (Y1 < 0)
@@ -434,7 +423,7 @@ namespace mapocr
                         }
                         textBox5.Text = textBox5.Text + S + " | ";
                     }
-                    
+
                     if (ocr != null)
                     {
                         try
@@ -445,12 +434,12 @@ namespace mapocr
                                 {
                                     string ocrText = page.GetText();
                                     float confidence = page.GetMeanConfidence();
-                                    
+
                                     // Clean up common OCR mistakes before processing
                                     string cleanedText = CleanOcrText(ocrText);
-                                    
+
                                     textBox2.Text = $"Original: {ocrText}\nCleaned: {cleanedText}\nConfidence: {(confidence * 100):F2}%";
-                                    
+
                                     string[] bits = cleanedText.Split(new char[] { '"', '\'', '`', '°', ',', '.', '°', ' ', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
                                     // Expected format: X XH°XM'XS", Y YH°YM'YS"
                                     // After split: [X, XH, XM, XS, Y, YH, YM, YS]
@@ -486,12 +475,12 @@ namespace mapocr
 
                                             }
                                             pictureBox4.BackgroundImage = drawmap;
-                                            
-                                            
+
+
                                             // Update status indicator - Map confirmed
-                                            UpdateStatusIndicator(Color.Blue, "Map confirmed! \n "+string.Join(", ",bits)+"");
+                                            UpdateStatusIndicator(Color.Blue, "Map confirmed! \n " + string.Join(", ", bits) + "");
                                             StopAutoAdjust(); // Successfully decoded, stop auto-adjust
-                                            
+
                                             break;
                                         }
                                         else if (bits.Count() == 8)
@@ -530,7 +519,7 @@ namespace mapocr
         {
             // Validate format: X XH°XM'XS", Y YH°YM'YS"
             // bits should be: [X, XH, XM, XS, Y, YH, YM, YS]
-            
+
             if (bits.Length != 8)
                 return false;
 
@@ -564,32 +553,32 @@ namespace mapocr
         {
             // Common OCR mistakes and their corrections
             // Pattern: seconds delimiter " is often read as 7, 1, or I
-            
+
             // Replace common misreads at end of number sequences
             // Example: W 11'34'317 -> W 11'34'31"
             //          W 11'34'311 -> W 11'34'31"
-            
+
             string cleaned = ocrText;
-            
+
             // Fix missing space between direction letter and number
             // Example: E0 -> E 0, W11 -> W 11, S17 -> S 17, N5 -> N 5
             cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"([EWNS])(\d)", "$1 $2");
-            
+
             // Fix trailing 7, 1, or I after what should be seconds (2 digits followed by 7/1/I)
             // Pattern: digit digit 7/1/I -> digit digit "
             cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"(\d{2})[71I]", "$1\"");
-            
+
             // Fix missing degree symbol - add it after first number if missing
             // Pattern: W 11' -> W 11°
             // Pattern: E 5' -> E 5°
             cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"([EWNS])\s*(\d{1,3})'", "$1 $2°$3'");
-            
+
             // Sometimes comma is read instead of apostrophe
             cleaned = cleaned.Replace(',', '\'');
-            
+
             // Sometimes period is misread
             cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"(\d)\.(\d)", "$1'$2");
-            
+
             return cleaned;
         }
 
@@ -627,7 +616,7 @@ namespace mapocr
 
             int XposReal = (int)Math.Round((double)(centerPointX + WEPxl) - (dotSize / 2));
             int YposReal = (int)Math.Round((double)(centerPointY + NSPxl) - (dotSize / 2));
-            
+
             // Debug output to textBox6
             textBox6.Text = $"Coords: {Xmode}{Xh}°{Xm}'{Xs}\" {Ymode}{Yh}°{Ym}'{Ys}\"\n" +
                            $"WE: {WESecond:F2} * {dirX} = {WEPxl:F2}\n" +
@@ -635,7 +624,7 @@ namespace mapocr
                            $"Position: X={XposReal}, Y={YposReal}\n" +
                            $"Map Size: {Map.Width}x{Map.Height}\n" +
                            $"PictureBox: {pictureBox4.Width}x{pictureBox4.Height}";
-            
+
             return DrawDot(Map, XposReal, YposReal, dotSize);
 
         }
@@ -799,40 +788,24 @@ namespace mapocr
         protected Bitmap CurrentScreen;
         private void updateNowSingle()
         {
-            CurrentScreen = CaptureApplication(procs[comboBox1.Text]);
-            pictureBox1.BackgroundImage = ScaleImage(CurrentScreen, 640, 360);
-
+            if (comboBox1.SelectedItem != null && screens.ContainsKey(comboBox1.Text))
+            {
+                CurrentScreen = CaptureScreen(screens[comboBox1.Text]);
+                pictureBox1.BackgroundImage = ScaleImage(CurrentScreen, 640, 360);
+            }
         }
 
-        public Bitmap CaptureApplication(Process proc)
+        public Bitmap CaptureScreen(Screen screen)
         {
-            var rect = new User32.Rect();
-            User32.GetWindowRect(proc.MainWindowHandle, ref rect);
+            Rectangle bounds = screen.Bounds;
+            var bmp = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb);
 
-            int width = rect.right - rect.left;
-            int height = rect.bottom - rect.top;
-
-            var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
             using (Graphics graphics = Graphics.FromImage(bmp))
             {
-                graphics.CopyFromScreen(rect.left, rect.top, 0, 0, new Size(width, height), CopyPixelOperation.SourceCopy);
+                graphics.CopyFromScreen(bounds.Left, bounds.Top, 0, 0, bounds.Size, CopyPixelOperation.SourceCopy);
             }
+
             return bmp;
-        }
-
-        private class User32
-        {
-            [StructLayout(LayoutKind.Sequential)]
-            public struct Rect
-            {
-                public int left;
-                public int top;
-                public int right;
-                public int bottom;
-            }
-
-            [DllImport("user32.dll")]
-            public static extern IntPtr GetWindowRect(IntPtr hWnd, ref Rect rect);
         }
 
         bool enableBox = false;
@@ -864,9 +837,9 @@ namespace mapocr
             toolTip.SetToolTip(trackBar1, "Detection Threshold: Adjust if map icon is not being detected");
             toolTip.SetToolTip(trackBar2, "Color Tolerance: Fine-tune OCR color matching");
             toolTip.SetToolTip(trackBar3, "Image Scale: Increase text size for better OCR accuracy");
-            toolTip.SetToolTip(comboBox1, "Select which ArcheAge window to track");
-            toolTip.SetToolTip(button1, "Confirm window selection / Pause scanning");
-            
+            toolTip.SetToolTip(comboBox1, "Select which monitor/screen to capture");
+            toolTip.SetToolTip(button1, "Pause/Resume screen scanning");
+
             // Add status indicator box
             statusIndicator = new Panel()
             {
@@ -877,7 +850,7 @@ namespace mapocr
                 BackColor = Color.Red,
                 Anchor = AnchorStyles.Bottom | AnchorStyles.Left
             };
-            
+
             statusLabel = new Label()
             {
                 Text = "Looking for map...",
@@ -889,50 +862,11 @@ namespace mapocr
                 Font = new Font(this.Font.FontFamily, 9, FontStyle.Bold),
                 ForeColor = Color.White
             };
-            
+
             statusIndicator.Controls.Add(statusLabel);
             this.Controls.Add(statusIndicator);
             statusIndicator.BringToFront();
             toolTip.SetToolTip(statusIndicator, "Current scanning status:\nRed = Looking for map\nGreen = Decoding map\nBlue = Map confirmed");
-            
-            // Add help button dynamically
-            var helpButton = new Button()
-            {
-                Text = "?",
-                Width = 30,
-                Height = 30,
-                Location = new System.Drawing.Point(this.Width - 60, 10),
-                Font = new Font(this.Font.FontFamily, 14, FontStyle.Bold),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right
-            };
-            helpButton.Click += HelpButton_Click;
-            this.Controls.Add(helpButton);
-            toolTip.SetToolTip(helpButton, "Show help and usage instructions");
-        }
-
-        private void HelpButton_Click(object? sender, EventArgs e)
-        {
-            MessageBox.Show(
-                "HOW TO USE:\\n\\n" +
-                "1. Start ArcheAge\\n" +
-                "2. Select the game window from dropdown\\n" +
-                "3. Application will automatically track your location\\n" +
-                "4. View current coordinates and region on map\\n\\n" +
-                "TIPS:\\n" +
-                "- Adjust sliders if detection isn't working\\n" +
-                "- Settings are saved automatically\\n" +
-                "- Use Pause button to stop/resume scanning\\n\\n" +
-                "CONTROLS:\\n" +
-                "- Pattern match: Detection sensitivity\\n" +
-                "- Color match: OCR color tolerance\\n" +
-                "- Resize: Text scaling for OCR\\n\\n" +
-                "STATUS INDICATOR:\\n" +
-                "- RED = Looking for map\\n" +
-                "- GREEN = Decoding map data\\n" +
-                "- BLUE = Map confirmed & decoded",
-                "Quick Help",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
         }
 
         private void UpdateStatusIndicator(Color color, string text)
@@ -958,25 +892,25 @@ namespace mapocr
             textBox2.Text = $"Timer Tick: {DateTime.Now:HH:mm:ss}\n" +
                            $"isCurrentlyDecoding: {isCurrentlyDecoding}\n" +
                            $"trackBar3.Value: {trackBar3.Value}";
-            
+
             // If we're stuck in decoding state, auto-adjust resize UP
             if (isCurrentlyDecoding)
             {
                 // Timer already waited 2 seconds, so just increment now
-                
+
                 // Bump up the resize by 10
                 if (trackBar3.Value + 10 <= trackBar3.Maximum)
                 {
                     trackBar3.Value += 10;
                     autoAdjustCounter++;
-                    
+
                     // Explicitly update the label to reflect the new value
                     label6.Text = trackBar3.Value.ToString();
-                    
+
                     // Force UI refresh to show the trackbar change
                     trackBar3.Refresh();
                     label6.Refresh();
-                    
+
                     // Update status to show auto-adjustment
                     if (statusLabel != null)
                     {
@@ -1007,51 +941,8 @@ namespace mapocr
             autoAdjustCounter = 0;
         }
 
-        private void LoadSettings()
-        {
-            try
-            {
-                // Try to load settings from file
-                string settingsFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
-                if (File.Exists(settingsFile))
-                {
-                    var settingsJson = File.ReadAllText(settingsFile);
-                    var settings = JsonSerializer.Deserialize<AppSettings>(settingsJson);
-                    if (settings != null)
-                    {
-                        trackBar1.Value = Math.Max(trackBar1.Minimum, Math.Min(trackBar1.Maximum, settings.DetectionThreshold));
-                        trackBar2.Value = Math.Max(trackBar2.Minimum, Math.Min(trackBar2.Maximum, settings.ColorTolerance));
-                        trackBar3.Value = Math.Max(trackBar3.Minimum, Math.Min(trackBar3.Maximum, settings.ImageScale));
-                    }
-                }
-            }
-            catch
-            {
-                // If loading fails, just use default values
-            }
-        }
-
         private void Form1_FormClosing(object? sender, FormClosingEventArgs e)
         {
-            try
-            {
-                // Save settings to file
-                var settings = new AppSettings
-                {
-                    DetectionThreshold = trackBar1.Value,
-                    ColorTolerance = trackBar2.Value,
-                    ImageScale = trackBar3.Value
-                };
-                
-                string settingsFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
-                var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(settingsFile, json);
-            }
-            catch
-            {
-                // Silently fail if we can't save settings
-            }
-            
             // Clean up resources
             ocr?.Dispose();
             autoAdjustTimer?.Stop();
@@ -1059,12 +950,34 @@ namespace mapocr
             isCurrentlyDecoding = false;
         }
 
-    }
-
-    public class AppSettings
-    {
-        public int DetectionThreshold { get; set; } = 50;
-        public int ColorTolerance { get; set; } = 10;
-        public int ImageScale { get; set; } = 5;
+        private void Form1_HelpButtonClicked(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            MessageBox.Show(
+                "HOW TO USE:\n\n" +
+                "1. Select the monitor where ArcheAge is running\n" +
+                "2. Screen monitoring begins automatically on primary screen\n" +
+                "3. Hover over a map item to display coordinates\n" +
+                "4. Position will be shown on the world map as a flashing icon\n\n" +
+                "TIPS:\n" +
+                "- Application captures the entire selected screen\n" +
+                "- Make sure the in-game map is visible on the selected monitor\n" +
+                "- Adjust sliders if coordinates aren't being read correctly\n" +
+                "- Use Pause/Resume button to control scanning\n\n" +
+                "CONTROLS:\n" +
+                "- Monitor: Select which screen to capture\n" +
+                "- Pattern match: Adjusts map icon detection sensitivity\n" +
+                "- Color match: Fine-tunes OCR color tolerance\n" +
+                "- Resize: Increases text size for better OCR accuracy\n" +
+                "  (Auto-adjusts if stuck decoding)\n\n" +
+                "STATUS INDICATOR:\n" +
+                "- YELLOW = Ready, waiting for map\n" +
+                "- RED = Looking for map icon\n" +
+                "- GREEN = Decoding map coordinates\n" +
+                "- BLUE = Coordinates confirmed & displayed\n" +
+                "- ORANGE = Paused or invalid format detected",
+                "Quick Help",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
     }
 }

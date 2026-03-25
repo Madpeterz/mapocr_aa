@@ -288,7 +288,7 @@
             tabPage2.Location = new Point(4, 24);
             tabPage2.Name = "tabPage2";
             tabPage2.Padding = new Padding(3);
-            tabPage2.Size = new Size(877, 615);
+            tabPage2.Size = new Size(612, 615);
             tabPage2.TabIndex = 1;
             tabPage2.Text = "Config";
             tabPage2.UseVisualStyleBackColor = true;
@@ -301,7 +301,7 @@
             tabPage3.Controls.Add(pictureBox2);
             tabPage3.Location = new Point(4, 24);
             tabPage3.Name = "tabPage3";
-            tabPage3.Size = new Size(877, 615);
+            tabPage3.Size = new Size(612, 615);
             tabPage3.TabIndex = 2;
             tabPage3.Text = "Helpers";
             tabPage3.UseVisualStyleBackColor = true;
@@ -310,10 +310,14 @@
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(637, 657);
+            ClientSize = new Size(642, 657);
             Controls.Add(tabControl1);
+            HelpButton = true;
+            MaximizeBox = false;
+            MinimizeBox = false;
             Name = "Form1";
             Text = "Form1";
+            HelpButtonClicked += Form1_HelpButtonClicked;
             Load += Form1_Load;
             ((System.ComponentModel.ISupportInitialize)pictureBox1).EndInit();
             ((System.ComponentModel.ISupportInitialize)pictureBox2).EndInit();
